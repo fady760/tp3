@@ -83,3 +83,52 @@ It documents the AI-assisted work: which agent was used, topics discussed, chall
 
 **28. Which skills did I actually practice in this TP (state management, layout, testing), and how do they connect to the next workshop (Provider + Supabase)?**
 StatefulWidget + setState() for local state; layout with Column, Row, Expanded, ListView; unit and widget testing with TDD. Next, Provider introduces shared state management across widgets, and Supabase adds persistence — both build directly on the patterns practiced here.
+
+---
+
+## Workshop 3 — Provider & Scalable State Management with TDD
+
+**29. Why does setState() stop scaling, and what specifically does Provider fix?**
+setState() rebuilds the whole StatefulWidget subtree and forces prop-drilling to pass state down many layers. Provider centralizes state at the root and rebuilds only widgets that watch it, avoiding both problems.
+
+**30. What does ChangeNotifier actually do, and why call notifyListeners() after every mutation?**
+ChangeNotifier tracks a list of listeners and calls them when notifyListeners() is called. Without it, Provider has no signal that state changed and widgets that watch the provider never rebuild.
+
+**31. Why did I have to rename WaitingRoomManager to QueueProvider — isn't the name cosmetic?**
+The rename signals the class's new role: it now extends ChangeNotifier and acts as a provider, not just a plain manager. Keeping the old name would be misleading once it holds listenable state.
+
+**32. The PDF's nextClient() had `if (_clients.isEmpty)` — why is that wrong?**
+Because removeAt(0) on an empty list throws a RangeError. The guard must be `if (_clients.isNotEmpty)`, otherwise the method never removes anything and the unit test fails.
+
+**33. Same for the Add button: the PDF said `if (_controller.text.isEmpty)` before adding — why is that inverted?**
+The condition would prevent adding whenever the field has text, which is the exact opposite of intent. It must be `if (_controller.text.isNotEmpty)` so empty input is ignored and non-empty input is added.
+
+**34. Why do we convert WaitingRoomScreen from StatefulWidget to StatelessWidget?**
+The provider now owns the mutable state, so the widget itself has nothing mutable to track. StatelessWidget is simpler and lets the provider drive rebuilds.
+
+**35. What is the difference between context.watch<QueueProvider>() and context.read<QueueProvider>()?**
+watch() subscribes the calling widget to the provider and rebuilds it on notifyListeners(). read() reads the current value and calls methods without subscribing — used for actions like Add, Remove, Next.
+
+**36. Why wrap the app in ChangeNotifierProvider at the root (in main()) rather than at the screen level?**
+Wrapping at the root makes QueueProvider available to every widget below it — including AppBar actions and deeply nested tiles — without prop-drilling. It's also the standard pattern and keeps the provider lifecycle tied to the whole app.
+
+**37. Why did the widget test have to wrap WaitingRoomApp in ChangeNotifierProvider itself?**
+Because after the refactor the app no longer creates the provider internally — main() does. In the test there is no main(), so the test must supply the provider to satisfy context.watch / context.read calls inside WaitingRoomScreen.
+
+**38. Why do we use Key('nextClientButton') instead of finding the IconButton by type or icon?**
+find.byType(IconButton) would match every IconButton (including the delete icons in each ListTile). A unique Key targets exactly the Next Client button, making the test resilient.
+
+**39. Why does the AppBar button use Icons.skip_next instead of, say, an arrow?**
+Icons.skip_next is the conventional icon for "advance the queue" / "next item" and reads clearly to users. The icon choice is cosmetic — the test finds the button by Key, not icon.
+
+**40. Why is TextEditingController created inside build() of a StatelessWidget here, and is that a problem?**
+Creating it in build() creates a new controller on every rebuild, which technically loses the field's text mid-typing if a notifyListeners fires — the PDF does this, but in a real app you'd move it to a StatefulWidget or a higher-scope holder. It works for this workshop because the fields are cleared after every action.
+
+**41. Does the ListView still re-render entirely when a client is added?**
+The whole WaitingRoomScreen rebuilds because it calls context.watch<QueueProvider>() at the top. That's still simpler than prop-drilling; further optimization would mean splitting into smaller Consumer widgets — out of scope for this workshop.
+
+**42. How would I add "remove all" and "skip to end" while keeping TDD?**
+Write unit tests for clearAll() and a moveToEnd(name) method first (Red), implement them in QueueProvider with notifyListeners() (Green), then write widget tests for the corresponding buttons (Red) and wire them in the UI (Green). Same Red → Green → Refactor cycle.
+
+**43. Which skills from this workshop set me up for the next one (Supabase persistence)?**
+Managing state through a ChangeNotifier with async operations, keeping UI decoupled from data source, and testing both model logic and UI flows — all of which map directly onto swapping an in-memory list for a Supabase-backed repository behind the same provider API.
